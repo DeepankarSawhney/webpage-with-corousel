@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Camera Advisor</string>
+    <string name="camera_permission_rationale">Camera Advisor needs camera access to analyze your shot in real time and suggest settings to adjust.</string>
+    <string name="camera_permission_denied">Camera permission was denied. Open Settings to grant it.</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="grant_permission">Grant Camera Permission</string>
+</resources>
