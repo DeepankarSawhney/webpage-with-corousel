@@ -19,7 +19,7 @@ import java.util.Locale
  */
 object CaptureRepository {
 
-    private const val RELATIVE_PATH = "${Environment.DIRECTORY_PICTURES}/CameraAdvisor"
+    private val RELATIVE_PATH = "${Environment.DIRECTORY_PICTURES}/CameraAdvisor"
     private val FILENAME_FORMAT = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
 
     fun capture(
