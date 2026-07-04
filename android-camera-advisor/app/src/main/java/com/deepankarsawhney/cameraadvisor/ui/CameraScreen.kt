@@ -2,18 +2,13 @@ package com.deepankarsawhney.cameraadvisor.ui
 
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,6 +25,7 @@ import com.deepankarsawhney.cameraadvisor.ui.components.RuleOfThirdsOverlay
 import com.deepankarsawhney.cameraadvisor.ui.components.ShutterButton
 import com.deepankarsawhney.cameraadvisor.ui.components.SuggestionHud
 import com.deepankarsawhney.cameraadvisor.ui.components.ThumbnailBadge
+import com.deepankarsawhney.cameraadvisor.ui.components.TopToolbar
 import com.deepankarsawhney.cameraadvisor.viewmodel.CameraViewModel
 
 @Composable
@@ -47,18 +43,28 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
             },
         )
 
-        RuleOfThirdsOverlay(modifier = Modifier.fillMaxSize())
+        if (uiState.gridVisible) {
+            RuleOfThirdsOverlay(modifier = Modifier.fillMaxSize())
+        }
+
+        TopToolbar(
+            flashMode = uiState.flashMode,
+            gridVisible = uiState.gridVisible,
+            onCycleFlash = viewModel::cycleFlashMode,
+            onToggleGrid = viewModel::toggleGrid,
+            onOpenManualControls = { viewModel.onSuggestionTapped(ManualControl.EXPOSURE_COMPENSATION) },
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
+        )
 
         SuggestionHud(
             suggestions = uiState.suggestions,
             onSuggestionTapped = viewModel::onSuggestionTapped,
-            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 64.dp),
         )
 
         BottomControlBar(
             lastPhotoUri = uiState.lastPhotoUri,
             onCapture = viewModel::onCapture,
-            onOpenManualControls = { viewModel.onSuggestionTapped(ManualControl.EXPOSURE_COMPENSATION) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
 
@@ -85,18 +91,15 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
 private fun BottomControlBar(
     lastPhotoUri: android.net.Uri?,
     onCapture: () -> Unit,
-    onOpenManualControls: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Box(
         modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        ThumbnailBadge(lastPhotoUri = lastPhotoUri)
-        ShutterButton(onClick = onCapture)
-        IconButton(onClick = onOpenManualControls) {
-            Icon(imageVector = Icons.Filled.Settings, contentDescription = "Manual controls", tint = Color.White)
-        }
+        ThumbnailBadge(lastPhotoUri = lastPhotoUri, modifier = Modifier.align(Alignment.CenterStart))
+        ShutterButton(onClick = onCapture, modifier = Modifier.align(Alignment.Center))
+        // Empty spacer mirroring the thumbnail's footprint so the shutter stays visually centered.
+        Box(modifier = Modifier.size(48.dp).align(Alignment.CenterEnd))
     }
 }
 

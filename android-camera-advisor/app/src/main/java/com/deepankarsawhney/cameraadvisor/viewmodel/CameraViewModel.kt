@@ -2,6 +2,7 @@ package com.deepankarsawhney.cameraadvisor.viewmodel
 
 import android.app.Application
 import android.util.Log
+import androidx.camera.core.ImageCapture
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
@@ -87,6 +88,20 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun onManualControlsSheetDismissed() {
         _uiState.update { it.copy(jumpToControl = null) }
+    }
+
+    fun cycleFlashMode() {
+        val next = when (_uiState.value.flashMode) {
+            ImageCapture.FLASH_MODE_OFF -> ImageCapture.FLASH_MODE_AUTO
+            ImageCapture.FLASH_MODE_AUTO -> ImageCapture.FLASH_MODE_ON
+            else -> ImageCapture.FLASH_MODE_OFF
+        }
+        cameraController.setFlashMode(next)
+        _uiState.update { it.copy(flashMode = next) }
+    }
+
+    fun toggleGrid() {
+        _uiState.update { it.copy(gridVisible = !it.gridVisible) }
     }
 
     fun setIso(iso: Int) {

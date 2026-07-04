@@ -1,6 +1,7 @@
 package com.deepankarsawhney.cameraadvisor.viewmodel
 
 import android.net.Uri
+import androidx.camera.core.ImageCapture
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControl
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControlState
 import com.deepankarsawhney.cameraadvisor.core.ml.SceneTag
@@ -9,6 +10,8 @@ import com.deepankarsawhney.cameraadvisor.core.suggestion.Suggestion
 data class CameraUiState(
     val suggestions: List<Suggestion> = emptyList(),
     val sceneTag: SceneTag = SceneTag.GENERAL,
+    val flashMode: Int = ImageCapture.FLASH_MODE_OFF,
+    val gridVisible: Boolean = true,
     val manualControlState: ManualControlState = ManualControlState(
         isoAuto = true,
         iso = 100,

@@ -40,6 +40,9 @@ class CameraController(private val context: Context) {
     // otherwise e.g. setting shutter speed alone would silently wipe out a previously-set ISO.
     private var activeOptions: CaptureRequestOptions = CaptureRequestOptions.Builder().build()
 
+    // Preserved across rebinds since a fresh ImageCapture always defaults back to FLASH_MODE_OFF.
+    private var pendingFlashMode: Int = ImageCapture.FLASH_MODE_OFF
+
     @Volatile
     var latestCaptureResult: CaptureResult? = null
         private set
@@ -69,7 +72,7 @@ class CameraController(private val context: Context) {
 
         val preview = previewBuilder.build().also { it.surfaceProvider = previewView.surfaceProvider }
         val imageAnalysis = analysisBuilder.build().also { it.setAnalyzer(analysisExecutor, analyzer) }
-        val capture = captureBuilder.build()
+        val capture = captureBuilder.build().also { it.flashMode = pendingFlashMode }
         imageCapture = capture
 
         cameraProvider.unbindAll()
@@ -88,6 +91,11 @@ class CameraController(private val context: Context) {
     fun <T> getCharacteristic(key: CameraCharacteristics.Key<T>): T? {
         val currentCamera = camera ?: return null
         return Camera2CameraInfo.from(currentCamera.cameraInfo).getCameraCharacteristic(key)
+    }
+
+    fun setFlashMode(mode: Int) {
+        pendingFlashMode = mode
+        imageCapture?.flashMode = mode
     }
 
     fun capturePhoto(onSaved: (Uri) -> Unit, onFailure: (Exception) -> Unit) {
