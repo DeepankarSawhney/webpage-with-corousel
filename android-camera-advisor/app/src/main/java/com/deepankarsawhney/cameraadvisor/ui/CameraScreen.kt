@@ -22,10 +22,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControl
 import com.deepankarsawhney.cameraadvisor.ui.components.ManualControlsSheet
 import com.deepankarsawhney.cameraadvisor.ui.components.RuleOfThirdsOverlay
+import com.deepankarsawhney.cameraadvisor.ui.components.SceneBadge
 import com.deepankarsawhney.cameraadvisor.ui.components.ShutterButton
 import com.deepankarsawhney.cameraadvisor.ui.components.SuggestionHud
 import com.deepankarsawhney.cameraadvisor.ui.components.ThumbnailBadge
 import com.deepankarsawhney.cameraadvisor.ui.components.TopToolbar
+import com.deepankarsawhney.cameraadvisor.ui.components.readinessColor
 import com.deepankarsawhney.cameraadvisor.viewmodel.CameraViewModel
 
 @Composable
@@ -56,6 +58,11 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
         )
 
+        SceneBadge(
+            sceneTag = uiState.sceneTag,
+            modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp),
+        )
+
         SuggestionHud(
             suggestions = uiState.suggestions,
             onSuggestionTapped = viewModel::onSuggestionTapped,
@@ -64,6 +71,7 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
 
         BottomControlBar(
             lastPhotoUri = uiState.lastPhotoUri,
+            shutterRingColor = readinessColor(uiState.suggestions),
             onCapture = viewModel::onCapture,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
@@ -90,6 +98,7 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
 @Composable
 private fun BottomControlBar(
     lastPhotoUri: android.net.Uri?,
+    shutterRingColor: Color,
     onCapture: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -97,7 +106,11 @@ private fun BottomControlBar(
         modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp),
     ) {
         ThumbnailBadge(lastPhotoUri = lastPhotoUri, modifier = Modifier.align(Alignment.CenterStart))
-        ShutterButton(onClick = onCapture, modifier = Modifier.align(Alignment.Center))
+        ShutterButton(
+            onClick = onCapture,
+            ringColor = shutterRingColor,
+            modifier = Modifier.align(Alignment.Center),
+        )
         // Empty spacer mirroring the thumbnail's footprint so the shutter stays visually centered.
         Box(modifier = Modifier.size(48.dp).align(Alignment.CenterEnd))
     }

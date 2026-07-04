@@ -12,13 +12,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+/**
+ * [ringColor] doubles as an at-a-glance shot-readiness signal (green/amber/red based on the
+ * current suggestions' severity) — see [readinessColor] — rather than a fixed decorative ring.
+ */
 @Composable
-fun ShutterButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ShutterButton(onClick: () -> Unit, modifier: Modifier = Modifier, ringColor: Color = Color.White) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
             .size(72.dp)
-            .border(4.dp, Color.White, CircleShape)
+            .border(4.dp, ringColor, CircleShape)
             .clickable(onClick = onClick),
     ) {
         Box(
