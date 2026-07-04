@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -24,6 +26,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControl
 import com.deepankarsawhney.cameraadvisor.ui.components.ManualControlsSheet
+import com.deepankarsawhney.cameraadvisor.ui.components.RuleOfThirdsOverlay
 import com.deepankarsawhney.cameraadvisor.ui.components.ShutterButton
 import com.deepankarsawhney.cameraadvisor.ui.components.SuggestionHud
 import com.deepankarsawhney.cameraadvisor.ui.components.ThumbnailBadge
@@ -44,10 +47,12 @@ fun CameraScreen(viewModel: CameraViewModel = viewModel()) {
             },
         )
 
+        RuleOfThirdsOverlay(modifier = Modifier.fillMaxSize())
+
         SuggestionHud(
             suggestions = uiState.suggestions,
             onSuggestionTapped = viewModel::onSuggestionTapped,
-            modifier = Modifier.align(Alignment.TopCenter),
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
         )
 
         BottomControlBar(
@@ -84,7 +89,7 @@ private fun BottomControlBar(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(24.dp),
+        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         ThumbnailBadge(lastPhotoUri = lastPhotoUri)

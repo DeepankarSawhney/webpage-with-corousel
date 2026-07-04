@@ -35,6 +35,11 @@ class CameraController(private val context: Context) {
     private var camera2CameraControl: Camera2CameraControl? = null
     private var imageCapture: ImageCapture? = null
 
+    // Camera2CameraControl.captureRequestOptions REPLACES the whole bundle on every assignment
+    // rather than merging, so this tracks the accumulated set of manual options ourselves —
+    // otherwise e.g. setting shutter speed alone would silently wipe out a previously-set ISO.
+    private var activeOptions: CaptureRequestOptions = CaptureRequestOptions.Builder().build()
+
     @Volatile
     var latestCaptureResult: CaptureResult? = null
         private set
@@ -77,6 +82,7 @@ class CameraController(private val context: Context) {
         )
         camera = boundCamera
         camera2CameraControl = Camera2CameraControl.from(boundCamera.cameraControl)
+        activeOptions = CaptureRequestOptions.Builder().build()
     }
 
     fun <T> getCharacteristic(key: CameraCharacteristics.Key<T>): T? {
@@ -94,29 +100,25 @@ class CameraController(private val context: Context) {
     }
 
     fun setManualIso(iso: Int) {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                .setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, iso)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, iso)
+        }
     }
 
     fun setManualExposureTime(nanos: Long) {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                .setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, nanos)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, nanos)
+        }
     }
 
     fun setAutoExposure() {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            clearCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY)
+            clearCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME)
+        }
     }
 
     fun setExposureCompensationSteps(steps: Int) {
@@ -124,44 +126,46 @@ class CameraController(private val context: Context) {
     }
 
     fun setManualFocusDistance(diopters: Float) {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-                .setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, diopters)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+            setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, diopters)
+        }
     }
 
     fun setAutoFocus() {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(
-                    CaptureRequest.CONTROL_AF_MODE,
-                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
-                )
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(
+                CaptureRequest.CONTROL_AF_MODE,
+                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE,
+            )
+            clearCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE)
+        }
     }
 
     fun setWhiteBalancePreset(awbMode: Int) {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, false)
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, awbMode)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, false)
+            setCaptureRequestOption(CaptureRequest.CONTROL_AWB_MODE, awbMode)
+        }
     }
 
     fun setAwbLocked(locked: Boolean) {
-        applyOptions(
-            CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, locked)
-                .build(),
-        )
+        applyOptions {
+            setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, locked)
+        }
     }
 
-    private fun applyOptions(options: CaptureRequestOptions) {
-        camera2CameraControl?.captureRequestOptions = options
+    /**
+     * Applies [block] on top of the previously accumulated manual options (not just the keys it
+     * touches) — Camera2CameraControl.captureRequestOptions replaces the whole bundle on every
+     * assignment, so every setter must always resend every manual key still in effect.
+     */
+    private fun applyOptions(block: CaptureRequestOptions.Builder.() -> Unit) {
+        val builder = CaptureRequestOptions.Builder.from(activeOptions)
+        builder.block()
+        val newOptions = builder.build()
+        activeOptions = newOptions
+        camera2CameraControl?.captureRequestOptions = newOptions
     }
 
     fun unbind(cameraProvider: ProcessCameraProvider) {
@@ -169,6 +173,7 @@ class CameraController(private val context: Context) {
         camera = null
         camera2CameraControl = null
         imageCapture = null
+        activeOptions = CaptureRequestOptions.Builder().build()
     }
 
     fun shutdown() {

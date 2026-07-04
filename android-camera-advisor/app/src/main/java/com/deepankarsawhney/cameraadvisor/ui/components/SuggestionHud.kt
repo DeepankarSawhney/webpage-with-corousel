@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControl
 import com.deepankarsawhney.cameraadvisor.core.suggestion.Suggestion
@@ -21,7 +22,7 @@ import com.deepankarsawhney.cameraadvisor.core.suggestion.Suggestion
 @Composable
 fun SuggestionHud(
     suggestions: List<Suggestion>,
-    onSuggestionTapped: (ManualControl) -> Unit,
+    onSuggestionTapped: (ManualControl?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (suggestions.isEmpty()) return
@@ -38,19 +39,34 @@ fun SuggestionHud(
 
 @Composable
 private fun SuggestionChip(suggestion: Suggestion, onTapped: () -> Unit) {
+    // Severity tints the chip from a calm amber toward a more urgent red.
+    val accent = lerp(Color(0xFFFDD663), Color(0xFFF28B82), suggestion.severity.toFloat().coerceIn(0f, 1f))
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.6f))
-            .clickable(onClick = onTapped)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .background(Color.Black.copy(alpha = 0.7f))
+            .clickable(enabled = suggestion.targetControl != null, onClick = onTapped)
+            .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = suggestion.message,
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(top = 2.dp, bottom = 2.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(accent)
+                    .padding(horizontal = 2.dp),
+            ) {}
+            Text(
+                text = suggestion.message,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        if (suggestion.targetControl != null) {
+            Text(text = "Fix", color = accent, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }

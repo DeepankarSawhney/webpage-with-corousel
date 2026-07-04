@@ -20,6 +20,7 @@ class FrameAnalyzer(
     private val sceneClassifier: SceneClassifier,
     private val currentMetrics: () -> FrameMetrics,
     private val currentShakeScore: () -> Double,
+    private val currentHorizonTiltDegrees: () -> Double,
     private val onAssessment: (FrameAssessment, SceneTag, Double) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
@@ -40,6 +41,7 @@ class FrameAnalyzer(
                 avgBlue = frame.avgBlue,
                 metrics = currentMetrics(),
                 shakeScore = currentShakeScore(),
+                horizonTiltDegrees = currentHorizonTiltDegrees(),
             )
 
             if (frameCounter.incrementAndGet() % SCENE_CLASSIFY_EVERY_N_FRAMES == 0) {

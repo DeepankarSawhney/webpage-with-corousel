@@ -14,4 +14,6 @@ data class FrameAssessment(
     val exposureTimeNanos: Long,
     val afState: AfState,
     val awbLocked: Boolean,
+    /** Device roll relative to level, in degrees, from the accelerometer (0 = level horizon). */
+    val horizonTiltDegrees: Double = 0.0,
 )

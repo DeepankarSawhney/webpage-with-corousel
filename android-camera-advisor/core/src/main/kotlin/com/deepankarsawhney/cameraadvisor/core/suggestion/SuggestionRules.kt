@@ -5,6 +5,7 @@ import com.deepankarsawhney.cameraadvisor.core.domain.FrameAssessment
 import com.deepankarsawhney.cameraadvisor.core.domain.ManualControl
 import com.deepankarsawhney.cameraadvisor.core.ml.SceneTag
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Scene-adjusted thresholds for turning a [FrameAssessment] into candidate [Suggestion]s.
@@ -63,9 +64,34 @@ object SuggestionRules {
         SceneTag.LANDSCAPE to GENERAL,
     )
 
+    private val ISO_STEPS = intArrayOf(50, 100, 200, 400, 800, 1600, 3200, 6400, 12800)
+    private const val HORIZON_TILT_THRESHOLD_DEGREES = 4.0
+
     private fun severityOf(value: Double, threshold: Double, scale: Double): Double {
         if (scale <= 0.0) return if (value > threshold) 1.0 else 0.0
         return min(1.0, (value - threshold) / scale).coerceAtLeast(0.0)
+    }
+
+    /** Nearest ISO step at or above [current], skipped forward by [stepsUp] additional stops. */
+    private fun isoStepUp(current: Int, stepsUp: Int): Int {
+        var index = ISO_STEPS.indexOfFirst { it >= current }
+        if (index == -1) index = ISO_STEPS.lastIndex
+        val target = (index + stepsUp).coerceIn(0, ISO_STEPS.lastIndex)
+        return ISO_STEPS[target]
+    }
+
+    /** Nearest ISO step at or below [ceiling]. */
+    private fun isoStepAtOrBelow(ceiling: Int): Int {
+        val index = ISO_STEPS.indexOfLast { it <= ceiling }
+        return ISO_STEPS[if (index == -1) 0 else index]
+    }
+
+    private fun formatEvStops(stops: Double): String {
+        val thirds = (stops * 3).roundToInt()
+        return when {
+            thirds % 3 == 0 -> "${thirds / 3} EV"
+            else -> String.format("%.1f EV", thirds / 3.0)
+        }
     }
 
     fun candidates(assessment: FrameAssessment, sceneTag: SceneTag): List<Suggestion> {
@@ -73,22 +99,30 @@ object SuggestionRules {
         val result = mutableListOf<Suggestion>()
 
         if (assessment.highlightClipFraction > t.highlightClipMax) {
+            val severity = severityOf(assessment.highlightClipFraction, t.highlightClipMax, t.highlightClipMax * 2)
+            val evStops = 1.0 + severity // 1..2 EV
+            val evLabel = formatEvStops(evStops)
             result += Suggestion(
                 category = SuggestionCategory.EXPOSURE,
-                message = "Overexposed — lower exposure compensation or ISO",
-                severity = severityOf(assessment.highlightClipFraction, t.highlightClipMax, t.highlightClipMax * 2),
+                message = "Overexposed — lower exposure compensation by about $evLabel (or lower ISO)",
+                severity = severity,
                 targetControl = ManualControl.EXPOSURE_COMPENSATION,
                 direction = AdjustmentDirection.DECREASE,
+                suggestedValueDescription = "-$evLabel",
             )
         }
 
         if (assessment.meanLuma < t.meanLumaLowBand && assessment.shadowClipFraction > t.shadowClipMinForUnderexposed) {
+            val severity = severityOf(t.meanLumaLowBand - assessment.meanLuma, 0.0, t.meanLumaLowBand)
+            val stepsUp = if (severity > 0.5) 2 else 1
+            val targetIso = isoStepUp(assessment.isoSensitivity, stepsUp)
             result += Suggestion(
                 category = SuggestionCategory.EXPOSURE,
-                message = "Underexposed — raise ISO or exposure compensation",
-                severity = severityOf(t.meanLumaLowBand - assessment.meanLuma, 0.0, t.meanLumaLowBand),
+                message = "Underexposed — raise ISO to about $targetIso (or increase exposure compensation)",
+                severity = severity,
                 targetControl = ManualControl.ISO,
                 direction = AdjustmentDirection.INCREASE,
+                suggestedValueDescription = "ISO $targetIso",
             )
         }
 
@@ -103,19 +137,23 @@ object SuggestionRules {
         }
 
         if (assessment.shakeScore > t.shakeScoreThreshold && assessment.exposureTimeNanos > t.safeShutterNanos) {
+            val targetDenominator = (1_000_000_000.0 / t.safeShutterNanos).roundToInt()
             result += Suggestion(
                 category = SuggestionCategory.SHAKE,
-                message = "Camera shake detected — use a faster shutter speed or brace the phone",
+                message = "Camera shake detected — use a faster shutter speed (about 1/${targetDenominator}s or faster) or brace the phone",
                 severity = severityOf(assessment.shakeScore, t.shakeScoreThreshold, 1.0 - t.shakeScoreThreshold),
                 targetControl = ManualControl.SHUTTER_SPEED,
                 direction = AdjustmentDirection.DECREASE,
+                suggestedValueDescription = "1/${targetDenominator}s",
             )
         }
 
         if (assessment.isoSensitivity > t.isoNoiseCeiling) {
+            val targetIso = isoStepAtOrBelow(t.isoNoiseCeiling)
             result += Suggestion(
                 category = SuggestionCategory.NOISE,
-                message = "ISO very high — noise likely, allow more light or use a tripod for a slower shutter",
+                message = "ISO very high (${assessment.isoSensitivity}) — lower to about $targetIso or below, " +
+                    "or use a tripod for a slower shutter",
                 severity = severityOf(
                     assessment.isoSensitivity.toDouble(),
                     t.isoNoiseCeiling.toDouble(),
@@ -123,6 +161,7 @@ object SuggestionRules {
                 ),
                 targetControl = ManualControl.ISO,
                 direction = AdjustmentDirection.DECREASE,
+                suggestedValueDescription = "ISO $targetIso",
             )
         }
 
@@ -133,18 +172,32 @@ object SuggestionRules {
             )
             if (castMagnitude > t.whiteBalanceCastThreshold) {
                 val warm = assessment.redGreenRatio > assessment.blueGreenRatio
+                val severity = severityOf(castMagnitude, t.whiteBalanceCastThreshold, t.whiteBalanceCastThreshold)
+                val kelvinShift = (300 + severity * 900).roundToInt() / 100 * 100
                 result += Suggestion(
                     category = SuggestionCategory.WHITE_BALANCE,
                     message = if (warm) {
-                        "Image looks warm — try adjusting white balance cooler"
+                        "Image looks warm — try shifting white balance about ${kelvinShift}K cooler"
                     } else {
-                        "Image looks cool — try adjusting white balance warmer"
+                        "Image looks cool — try shifting white balance about ${kelvinShift}K warmer"
                     },
-                    severity = severityOf(castMagnitude, t.whiteBalanceCastThreshold, t.whiteBalanceCastThreshold),
+                    severity = severity,
                     targetControl = ManualControl.WHITE_BALANCE,
                     direction = if (warm) AdjustmentDirection.DECREASE else AdjustmentDirection.INCREASE,
+                    suggestedValueDescription = "${if (warm) "-" else "+"}${kelvinShift}K",
                 )
             }
+        }
+
+        val tiltMagnitude = kotlin.math.abs(assessment.horizonTiltDegrees)
+        if (tiltMagnitude > HORIZON_TILT_THRESHOLD_DEGREES) {
+            result += Suggestion(
+                category = SuggestionCategory.FRAMING,
+                message = "Horizon tilted about ${tiltMagnitude.roundToInt()}° — level your phone",
+                severity = severityOf(tiltMagnitude, HORIZON_TILT_THRESHOLD_DEGREES, HORIZON_TILT_THRESHOLD_DEGREES * 3),
+                targetControl = null,
+                direction = AdjustmentDirection.NONE,
+            )
         }
 
         return result

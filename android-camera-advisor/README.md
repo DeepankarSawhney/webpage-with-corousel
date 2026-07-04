@@ -19,6 +19,9 @@ points you at the right control.
   `ml-model/README.md` — the model file itself isn't bundled in this repo.
 - **Suggest-only.** Tips like "ISO too high — lower to 400" open the manual-controls sheet
   scrolled to the right slider with the target value marked; you always make the final adjustment.
+- **Framing tips.** An accelerometer-derived tilt check flags a tilted horizon ("Horizon tilted
+  about 6° — level your phone"), and a rule-of-thirds grid overlays the viewfinder as a composition
+  aid. These have no manual-control counterpart, so tapping a framing tip is a no-op.
 
 ## Project layout
 
@@ -80,6 +83,12 @@ the S26 Ultra itself after `./gradlew installDebug`:
       system gallery when tapped.
 - [ ] Preview stays smooth (no stutter/dropped frames) with heuristics running every frame and the
       scene classifier running in the background.
+- [ ] Tilt the phone left/right past a few degrees — a "horizon tilted" tip appears and clears once
+      level; the rule-of-thirds grid is visible over the viewfinder the whole time.
+- [ ] Manually set a shutter speed, then separately adjust ISO (or vice versa) in the manual-controls
+      sheet — confirm the first value you set is *not* reset by changing the second.
+- [ ] Shutter button, thumbnail badge, and settings icon are fully visible above the phone's
+      on-screen navigation buttons (gesture bar or 3-button nav), not overlapped by them.
 
 ## Known MVP simplifications
 
@@ -87,8 +96,13 @@ the S26 Ultra itself after `./gradlew installDebug`:
   works fully, just always under `GENERAL` thresholds.
 - White balance manual control is preset-based (Auto/Daylight/Cloudy/Incandescent/Fluorescent) plus
   an AWB-lock toggle, not a full arbitrary-Kelvin slider with gains conversion.
-- Setting ISO or shutter speed individually switches `CONTROL_AE_MODE` off entirely (standard
-  Camera2 semantics) — use the sheet to set both together if you want full manual exposure control.
+- Setting ISO or shutter speed switches `CONTROL_AE_MODE` off entirely (standard Camera2
+  semantics) — but `CameraController` now accumulates and resends every previously-set manual
+  option on each change, so setting one no longer silently resets the other back to an undefined
+  value (a real bug in an earlier build: adjusting shutter speed alone was reverting ISO and
+  triggering a spurious "underexposed" warning right after).
 - The manual-controls sheet uses conservative fallback ISO/shutter/EV-compensation ranges rather
   than reading the device's actual `CameraCharacteristics` ranges (`CameraController.getCharacteristic()`
   already exposes what's needed to wire this up).
+- Framing tips are limited to a tilted-horizon check; there's no subject/person detection (that
+  would need an object detector, larger scope than this pass).

@@ -138,4 +138,26 @@ class SuggestionEngineTest {
 
         assertEquals(SceneTag.LOW_LIGHT, engine.currentSceneTag)
     }
+
+    @Test
+    fun `tilted horizon surfaces a framing suggestion with no target control`() {
+        val assessment = baselineAssessment().copy(horizonTiltDegrees = 10.0)
+        engine.evaluate(assessment, SceneTag.GENERAL, 1.0)
+        clock.advanceBy(150)
+        val result = engine.evaluate(assessment, SceneTag.GENERAL, 1.0)
+
+        assertEquals(1, result.size)
+        assertEquals(SuggestionCategory.FRAMING, result.first().category)
+        assertEquals(null, result.first().targetControl)
+    }
+
+    @Test
+    fun `small horizon tilt within tolerance does not trigger a framing suggestion`() {
+        val assessment = baselineAssessment().copy(horizonTiltDegrees = 1.5)
+        engine.evaluate(assessment, SceneTag.GENERAL, 1.0)
+        clock.advanceBy(150)
+        val result = engine.evaluate(assessment, SceneTag.GENERAL, 1.0)
+
+        assertTrue(result.none { it.category == SuggestionCategory.FRAMING })
+    }
 }

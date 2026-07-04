@@ -8,6 +8,7 @@ enum class SuggestionCategory {
     SHAKE,
     NOISE,
     WHITE_BALANCE,
+    FRAMING,
 }
 
 enum class AdjustmentDirection {
@@ -20,7 +21,8 @@ data class Suggestion(
     val category: SuggestionCategory,
     val message: String,
     val severity: Double,
-    val targetControl: ManualControl,
+    /** Null for suggestions with no corresponding manual control (e.g. FRAMING tips). */
+    val targetControl: ManualControl?,
     val direction: AdjustmentDirection,
     val suggestedValueDescription: String? = null,
 )

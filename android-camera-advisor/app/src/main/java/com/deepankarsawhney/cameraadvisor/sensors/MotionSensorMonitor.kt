@@ -5,16 +5,19 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import kotlin.math.atan2
 import kotlin.math.sqrt
 
 /**
- * Rolling RMS of gyroscope angular-velocity magnitude over a short window, normalized to an
- * approximate 0..1 hand-shake score. Runs entirely independent of the camera frame pipeline.
+ * Two independent motion signals, both running off-camera-pipeline:
+ * - A rolling RMS of gyroscope angular-velocity magnitude, normalized to a 0..1 hand-shake score.
+ * - An accelerometer-derived device roll angle (degrees from level), for horizon-tilt framing tips.
  */
 class MotionSensorMonitor(context: Context) {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val gyroscope: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     private val samples = ArrayDeque<Pair<Long, Double>>()
 
@@ -22,9 +25,13 @@ class MotionSensorMonitor(context: Context) {
     var shakeScore: Double = 0.0
         private set
 
+    @Volatile
+    var horizonTiltDegrees: Double = 0.0
+        private set
+
     val isAvailable: Boolean get() = gyroscope != null
 
-    private val listener = object : SensorEventListener {
+    private val gyroscopeListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             val magnitude = sqrt(
                 (event.values[0] * event.values[0] +
@@ -45,14 +52,29 @@ class MotionSensorMonitor(context: Context) {
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
     }
 
+    private val accelerometerListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            // Held upright in portrait, pointed roughly level: gravity's X component grows as the
+            // phone rolls left/right, its Y component shrinks — atan2 gives the roll angle in degrees.
+            val ax = event.values[0].toDouble()
+            val ay = event.values[1].toDouble()
+            horizonTiltDegrees = Math.toDegrees(atan2(ax, ay))
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
     fun start() {
-        gyroscope?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyroscope?.let { sensorManager.registerListener(gyroscopeListener, it, SensorManager.SENSOR_DELAY_GAME) }
+        accelerometer?.let { sensorManager.registerListener(accelerometerListener, it, SensorManager.SENSOR_DELAY_UI) }
     }
 
     fun stop() {
-        sensorManager.unregisterListener(listener)
+        sensorManager.unregisterListener(gyroscopeListener)
+        sensorManager.unregisterListener(accelerometerListener)
         samples.clear()
         shakeScore = 0.0
+        horizonTiltDegrees = 0.0
     }
 
     private companion object {

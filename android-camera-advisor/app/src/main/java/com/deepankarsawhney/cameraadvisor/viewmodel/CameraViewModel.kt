@@ -37,6 +37,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         sceneClassifier = sceneClassifier,
         currentMetrics = ::readLatestFrameMetrics,
         currentShakeScore = { motionSensorMonitor.shakeScore },
+        currentHorizonTiltDegrees = { motionSensorMonitor.horizonTiltDegrees },
         onAssessment = ::onFrameAssessment,
     )
 
@@ -77,8 +78,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
-    fun onSuggestionTapped(control: ManualControl) {
-        _uiState.update { it.copy(jumpToControl = control) }
+    fun onSuggestionTapped(control: ManualControl?) {
+        // FRAMING tips (e.g. tilted horizon) have no corresponding manual control to jump to.
+        if (control != null) {
+            _uiState.update { it.copy(jumpToControl = control) }
+        }
     }
 
     fun onManualControlsSheetDismissed() {

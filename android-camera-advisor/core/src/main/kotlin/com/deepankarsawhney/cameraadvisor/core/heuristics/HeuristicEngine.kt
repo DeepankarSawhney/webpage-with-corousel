@@ -15,6 +15,7 @@ object HeuristicEngine {
         avgBlue: Double,
         metrics: FrameMetrics,
         shakeScore: Double,
+        horizonTiltDegrees: Double = 0.0,
     ): FrameAssessment {
         val exposure = ExposureAnalyzer.analyze(luma)
         val sharpnessVariance = SharpnessAnalyzer.laplacianVariance(luma, width, height)
@@ -34,6 +35,7 @@ object HeuristicEngine {
             exposureTimeNanos = metrics.exposureTimeNanos,
             afState = metrics.afState,
             awbLocked = metrics.awbLocked,
+            horizonTiltDegrees = horizonTiltDegrees,
         )
     }
 }

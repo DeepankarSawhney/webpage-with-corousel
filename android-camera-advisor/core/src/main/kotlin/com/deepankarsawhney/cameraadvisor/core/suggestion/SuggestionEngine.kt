@@ -78,9 +78,11 @@ class SuggestionEngine(
     }
 
     private fun resolveConflicts(candidates: List<Suggestion>): List<Suggestion> {
+        // Suggestions with no target control (e.g. FRAMING) don't compete for a shared camera
+        // resource, so they're never merged against each other — only real ManualControl clashes are.
         return candidates.groupBy { it.targetControl }
-            .flatMap { (_, group) ->
-                if (group.size <= 1) {
+            .flatMap { (control, group) ->
+                if (control == null || group.size <= 1) {
                     group
                 } else {
                     val directions = group.map { it.direction }.toSet()

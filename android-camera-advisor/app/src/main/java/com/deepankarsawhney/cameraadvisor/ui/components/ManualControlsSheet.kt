@@ -13,6 +13,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -23,6 +27,10 @@ import com.deepankarsawhney.cameraadvisor.core.domain.ManualControlState
 /**
  * Suggest-only manual controls: dragging a slider here is the only way a Camera2 manual control
  * actually changes — suggestions from the HUD only pre-focus a section and mark a target value.
+ *
+ * Each slider tracks its own local value while dragging and only pushes the Camera2 change on
+ * release (onValueChangeFinished) — applying a capture-request update on every drag tick made
+ * dragging feel janky and unresponsive.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,41 +50,55 @@ fun ManualControlsSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            ControlSection(title = "ISO: ${state.iso}", highlighted = jumpToControl == ManualControl.ISO) {
+            var localIso by remember(state.iso) { mutableFloatStateOf(state.iso.toFloat()) }
+            ControlSection(title = "ISO: ${localIso.toInt()}", highlighted = jumpToControl == ManualControl.ISO) {
                 Slider(
-                    value = state.iso.toFloat(),
+                    value = localIso,
                     valueRange = isoRange.first.toFloat()..isoRange.last.toFloat(),
-                    onValueChange = { onIsoChanged(it.toInt()) },
+                    onValueChange = { localIso = it },
+                    onValueChangeFinished = { onIsoChanged(localIso.toInt()) },
                 )
             }
 
+            var localExposureTime by remember(state.exposureTimeNanos) {
+                mutableFloatStateOf(state.exposureTimeNanos.toFloat())
+            }
             ControlSection(
-                title = "Shutter speed: 1/${(1_000_000_000.0 / state.exposureTimeNanos).toInt()}s",
+                title = "Shutter speed: 1/${(1_000_000_000.0 / localExposureTime).toInt()}s",
                 highlighted = jumpToControl == ManualControl.SHUTTER_SPEED,
             ) {
                 Slider(
-                    value = state.exposureTimeNanos.toFloat(),
+                    value = localExposureTime,
                     valueRange = exposureTimeRangeNanos.first.toFloat()..exposureTimeRangeNanos.last.toFloat(),
-                    onValueChange = { onShutterSpeedChanged(it.toLong()) },
+                    onValueChange = { localExposureTime = it },
+                    onValueChangeFinished = { onShutterSpeedChanged(localExposureTime.toLong()) },
                 )
             }
 
+            var localEvSteps by remember(state.exposureCompensationSteps) {
+                mutableFloatStateOf(state.exposureCompensationSteps.toFloat())
+            }
             ControlSection(
-                title = "Exposure compensation: ${state.exposureCompensationSteps}",
+                title = "Exposure compensation: ${localEvSteps.toInt()}",
                 highlighted = jumpToControl == ManualControl.EXPOSURE_COMPENSATION,
             ) {
                 Slider(
-                    value = state.exposureCompensationSteps.toFloat(),
+                    value = localEvSteps,
                     valueRange = exposureCompensationRange.first.toFloat()..exposureCompensationRange.last.toFloat(),
-                    onValueChange = { onExposureCompensationChanged(it.toInt()) },
+                    onValueChange = { localEvSteps = it },
+                    onValueChangeFinished = { onExposureCompensationChanged(localEvSteps.toInt()) },
                 )
             }
 
+            var localFocus by remember(state.focusDistanceDiopters) {
+                mutableFloatStateOf(state.focusDistanceDiopters)
+            }
             ControlSection(title = "Focus", highlighted = jumpToControl == ManualControl.FOCUS) {
                 Slider(
-                    value = state.focusDistanceDiopters,
+                    value = localFocus,
                     valueRange = 0f..10f,
-                    onValueChange = { onFocusChanged(it) },
+                    onValueChange = { localFocus = it },
+                    onValueChangeFinished = { onFocusChanged(localFocus) },
                 )
                 TextButton(onClick = onFocusAuto) { Text("Auto focus") }
             }
